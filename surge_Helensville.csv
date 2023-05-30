@@ -1,0 +1,7 @@
+return period storm,maximum surge,wind velocity,wave height,storm duration,normal tidal amplitude,MSL,Climate_scenario_low,Climate_scenario_high
+0,0,0,0,24,1.926,0.28,1.3,1.6
+2,0.657,0,0,24,1.926,0.28,1.3,1.6
+5,0.776,0,0,24,1.926,0.28,1.3,1.6
+10,0.87,0,0,24,1.926,0.28,1.3,1.6
+50,1.1,0,0,24,1.926,0.28,1.3,1.6
+100,1.204,0,0,24,1.926,0.28,1.3,1.6

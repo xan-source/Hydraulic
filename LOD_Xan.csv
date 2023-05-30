@@ -1,0 +1,3 @@
+﻿Name;Type;Sequence;Basin codes;Width unit;Heigh unit;Depth unit;Length unit;Number of flood defenses;FD1 Name;FD1 Type;FD1 Width;FD1 Height;FD1 Depth;FD1 Basin codes;FD1 Basin widths;FD1 Slope;FD1 Irribaren;FD1 Chezy;FD1 Length;FD1 Incoming basin;FD2 Name;FD2 Type;FD2 Width;FD2 Height;FD2 Depth;FD2 Basin codes;FD2 Basin widths;FD2 Slope;FD2 Irribaren;FD2 Chezy;FD2 Incoming basin;FD2 Length
+Coast;Line of Defense;0;;m;m+MSL;m;m;2;COAST;Land;9500;0.5;;1;2000;;;;;0;OUTLET;Water;100;;1.8;1;100;0.0001;;45;0;200
+Basins;Protected area;1;"1;2;3;4;5";m;m+MSL;m;m;;;;;;;;;;;;;;;;;;;;;;;;;
