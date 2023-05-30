@@ -1,6 +1,8 @@
 # Hydraulic
 This is the current state of the Hydraulic model. 
-- pseudo holds the initial pseudocode. This can be ignored and is for my reference. 
-- main.py is where the main calculation takes place. It calls calculations.py, 
-- calculations.py defines the formulas and classes used
-- secondaryCalc.py holds formulas called in calculations.py
+- RUN1.ipynb is the notebook where the model is hosted. The steps taken are explained there. 
+- calculations.py defines the formulas used
+- Classes.py defines the classes and miscellaneous formulas
+
+- FLORES Input holds the input files necessary for the model to run
+- PreviousVersions holds old versions of the model, used for my interest
