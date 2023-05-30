@@ -1,88 +1,24 @@
-from secondaryCalc import formula_broad_weir, calculate_open_channel_flow
+'''
+The formulas used to calculate the volume for RUN1.ipynb are located here. Additionally, two formulas to support the calculation of storm surge are defined.
+
+
+
+def calculate_inflow_rain(Basin, rain_intensity, timestep):
+
+    def calculate_open_channel_flow(channel, water_level_outside, basin_water_level):
+    def formula_broad_weir(land, water_level_outside, basin_water_level):
+def calculate_storm_surge(Basin, basin_water_level, LineOfDefense, outside_waterlevel, timestep):
+
+def calculation_drainage(Basin, Volume, timestep, drain_to_water_level_abs, basin_water_level_abs, retention):
+
+def calculate_infiltration(Basin, timestep, abs_basin_wl):
+
+def calculate_interbasin(Basin, basin_water_level, surrounding_water_levels):
+
+'''
+import math as math
+import numpy as np
 from scipy import interpolate
-
-'''
-Classes are not filled in yet, except where mentioned "done".
-
-Everything that is called in the rest of the formulas is mentioned, however. 
-'''
-class Basin:
-    def __init__(self, name, surfacearea=0, contours=[], width=0):
-        self.Area               = surfacearea               # Area of the basin.
-        self.Width              = width                     # used for storm surge calculation
-        self.BorderHeights      ={}                         # the heights of the borders with surrounding basins.
-        self.InfiltrationRate   = None                      #done the infiltration rate in the basin. Currently set to 2.5, but can be calculated with a different technique as well
-        self.Contours           = contours                  # Don't know how Erik linked this to Contours
-        self.DrainageCapacity   = None
-        self.DrainsTo           = None
-        self.VolumeToHeight     = None                      #done
-        self.HeightToVolume     = None                      #done
-        self.BorderHeights      = None
-        self.SurroundingAreas   = None
-        self.RetentionCapacity  = 0
-    def get_infiltration_rate(self):
-
-        self.InfiltrationRate = 2.5  # use until we have better method
-        return
-
-    def get_volume_inundation_curve(self):
-        heights = [self.Contours[0].MinHeight]
-        surface_areas = [self.Contours[0].Area]
-        volumes = [0]
-        for contour in range(1, len(self.Contours)):
-            heights.append(self.Contours[contour].MinHeight)
-            surface_areas.append(round(surface_areas[contour - 1] + self.Contours[contour].SurfaceArea, 1))
-            volumes.append(volumes[contour - 1] + (heights[contour] - heights[contour - 1]) * surface_areas[contour])
-        heights.append(30)
-        surface_areas.append(surface_areas[-1])
-        volumes.append(volumes[-1] + (heights[-1] - heights[-2]) * surface_areas[-1])
-        curve_volume_to_height = interpolate.interp1d(volumes, heights, kind='linear')
-        curve_height_to_volume = interpolate.interp1d(heights, volumes, kind='linear')
-        self.VolumeToHeight = curve_volume_to_height
-        self.HeightToVolume = curve_height_to_volume
-        return
-
-
-
-class Contours:
-    def __init__(self): # nog beter invullen.
-        self.Code                                           #Not called anywhere
-        self.MinHeight
-        self.SurfaceArea
-
-
-class LineOfDefense:
-    def __init__(self):
-        self.Type               # used to mention whether land or water based
-        self.Height
-        #Only valid in cases where water based (schematized as a channel)
-        self.Depth
-        self.Width
-        self.Chezy
-        self.Length             #Length of ...
-
-
-def create_surge_series(max_surge, storm_duration, tidal_amplitude, timestep, mean_sea_level):
-    """
-    This function makes a time series of the surge, consisting of tide and a surge. The surge is schematized as a
-    half sine. the tide is schematized to have its peak halfway through the storm duration (when surge is max)
-
-    :param max_surge: the maximum additional surge of the water level because of the storm [m]
-    :param storm_duration: length of the storm [hours]
-    :param tidal_amplitude: normal amplitude of the tide [m]
-    :param timestep: length of one timestep [s]
-    :param mean_sea_level: absolute height of the mean sea level [m]
-
-    :return: time series of water levels [m+MSL]
-    """
-
-    TIDE_INTERVAL = 12.417  # 12 hours and 25 minutes
-    time1 = np.linspace(0, storm_duration, int(storm_duration / timestep + 1), endpoint=True)
-    tide = tidal_amplitude * np.cos(np.pi / (TIDE_INTERVAL / 2) * time1 - 0.5 * storm_duration) + mean_sea_level
-    surge = max_surge * np.sin(np.pi / storm_duration * time1) ** 5
-    total_storm_surge_series = tide + surge
-
-    return list(total_storm_surge_series)
 
 def calculate_inflow_rain(Basin, rain_intensity, timestep):
     """
@@ -96,20 +32,84 @@ def calculate_inflow_rain(Basin, rain_intensity, timestep):
       :return inflow_volume_rain:  volume of rain entering the basin in 1 timestep [m^3]
     """
 
-    rain_volume = Basin.Area * (rain_intensity / 1000) * (timestep/3600)
-    return rain_volume
+    rain_volume = Basin.Area * (rain_intensity / 1000) * (timestep)
+    return rain_volume    #[m^3/timestep
+def calculate_open_channel_flow(channel, water_level_outside, basin_water_level):
+    """
+    This functions calculates discharge past a barrier in case it is connected through an open channel
 
+    NOTES/QUESTIONS:
+    - He originally used water_level_inside rather than basin_water_level? I think this should be the same right?
+    - CHECK formula!! It looks like he used Chezy, and just
+
+    :param channel: connecting body of water between outside water level and inside water level
+    :param water_level_outside: absolute height of water level on the outer (sea) side of the channel [m+MSL}
+    :param basin_water_level: absolute height of water level on the inner side of the channel [m+MSL]
+
+    :connections  calculate_storm_surge
+    :return q: discharge through the channel [m^3/m/s]
+
+    """
+
+    d_water = channel.Depth + (water_level_outside + basin_water_level) / 2         #[m]
+    diff = water_level_outside - basin_water_level                                  #[m]
+    q = 0
+    if diff != 0 and d_water > 0:
+        sign = diff / abs(diff)
+        surf_c = channel.Width * d_water                                            #[m^2]
+        radius = surf_c / (2 * d_water + channel.Width)  # de Vries                 #[m]
+        factor = 0.5
+        tmp = abs(diff) / (factor + 10 / (channel.Chezy ** 2) * channel.Length / radius) * 10 * surf_c ** 2
+        q = sign * math.sqrt(tmp)
+    return q #[m^3/m/s]
+def formula_broad_weir(land, water_level_outside, basin_water_level):
+    """
+    Calculates discharge past a barrier (measure/ location) in case of a broad weir.
+
+    NOTES/QUESTIONS:
+    - He still mentioned channel here, rather than basin. I think the notes are just bad
+
+    more information on : http://cirpwiki.info/wiki/Weirs
+    :param land: the barrier that the water has to pass
+    :param water_level_outside: absolute height of water level on the outer (sea) side of the channel [m+MSL}
+    :param basin_water_level: absolute height of water level on the inner side of the channel [m+MSL]
+
+    :connections calculate_storm_surge
+    :return q: discharge past the barrier [m^3/m/s]
+    """
+
+    q = 0
+    h_upper = max(water_level_outside, basin_water_level)
+    h_lower = min(water_level_outside, basin_water_level)
+
+    if land.Type == 'Water':
+        height = 0
+    else:
+        height = land.Height
+
+    if h_upper > height:
+        C_w = 0.55                                                                      # HEC2010 predicts 0.46-0.55 for broad-crested weirs
+        signum = 1
+        if h_lower / h_upper <= 0.67:
+            C_df = 1
+        else:
+            C_df = 1 - 27.8 * (h_lower / h_upper - 0.67) ** 3
+
+        if basin_water_level > water_level_outside:
+            signum = -1                                                                 # water flows outwards
+        q = signum * C_df * C_w * math.sqrt(9.81) * (h_upper - height) ** (3 / 2)
+
+    return q
 def calculate_storm_surge(Basin, basin_water_level, LineOfDefense, outside_waterlevel, timestep):
     """
     This function simulates storm surge hitting a Line of Defense. For 1 timestep, it calculates the volume of water
     passing the Line of Defense. The volume is the total amount of volume flowing into 1 basin. On the Line of Defense,
     a flood defense can be placed. The volume is calculated both for the situation where it holds and fails.
-
-    :param Basin: The drainage basin that receives the volume of water
-    :param basin_water_level: Absolute water level in the basin at the start of the timestep [m+MSL]
-    :param location: Part of Line of Defense where the storm surge hits. Can be Land (e.g. Coast) or Water (e.g. River)
-    :param outside_waterlevel: Water level on the outer side of the Line of Defense at the time of timestep. [m+MSL]
-    :param timestep: length of a time step [s]
+    :param: Basin: The drainage basin that receives the volume of water
+    :param: basin_water_level: Absolute water level in the basin at the start of the timestep [m+MSL]
+    :param: location: Part of Line of Defense where the storm surge hits. Can be Land (e.g. Coast) or Water (e.g. River)
+    :param: outside_waterlevel: Water level on the outer side of the Line of Defense at the time of timestep. [m+MSL]
+    :param: timestep: length of a time step [s]
 
     Important variables:
     Q_hold: Discharge of water entering the basin per second in case a measure holds [m^3/s]
@@ -120,55 +120,21 @@ def calculate_storm_surge(Basin, basin_water_level, LineOfDefense, outside_water
     get_overtopping: Could be included. Calculates overtopping, but not very relevant in this case
     calculate_open_channel_flow: Calculates the discharge through the channel.
                                 This can be both negative (out of the basin) or positive (into the basin) [m^3/m/s]
-
     :return V_hold: Volume of water entering the basin during the timestep in case a measure holds [m^3]
     """
-
     # Q_hold = None
-    Q_open = None
-
+    Q_open = 0
     if LineOfDefense.Type == 'Land':
-        if basin_water_level > LineOfDefense.Height + 1:
-            Q_open = formula_broad_weir(LineOfDefense, outside_waterlevel, basin_water_level) * Basin.Width  # [m3/s]
-        # else:
-        #     Q_open = location.get_overtopping(outside_waterlevel, location.Height, waveheight) * Basin.Width
-
-        # if measure:
-        #     if waterlevel_before > measure.Height + 1:  # bay level is higher than barrier, so it acts as broad weir
-        #         Q_hold = formula_broad_weir(measure, outside_waterlevel, waterlevel_before) * Basin.Width
-        #     else:  # bay level is lower than the barrier, so it overtops/overflows
-        #         Q_hold = measure.get_overtopping(outside_waterlevel, measure.Height, waveheight) * Basin.Width
-        #
-        #     if time < time_fail_land:
-        #         Q_open = Q_hold
-        #     else:
-        #         Q_open = Q_open * measure.BreachFactor + Q_hold * (1 - measure.BreachFactor)
-        # else:
-        #     Q_hold = Q_open
+        if basin_water_level > LineOfDefense.Height:
+            Q_open += formula_broad_weir(LineOfDefense, outside_waterlevel, basin_water_level) * Basin.Width  # [m3/s]
 
     elif LineOfDefense.Type == 'Water':
-        Q_open = calculate_open_channel_flow(LineOfDefense, outside_waterlevel, basin_water_level)
-
-        # if measure and outside_waterlevel > h_close:
-        #     if waterlevel_before > measure.Height + 1:  # Acts like a weir in this situation
-        #         Q_hold = formula_broad_weir(location, outside_waterlevel,
-        #                                     waterlevel_before) * Basin.Width
-        #     else:  # bay level is lower than surge and lower than barrier, so it overtops/overflows
-        #         Q_hold = measure.get_overtopping(outside_waterlevel, measure.Height,
-        #                                          waveheight) * Basin.Width
-        #     if time < time_fail_water:
-        #         Q_open = Q_hold
-        # else:
-        #     Q_hold = Q_open
+        Q_open += calculate_open_channel_flow(LineOfDefense, outside_waterlevel, basin_water_level)
 
     # V_hold = Q_hold * timestep
-    V_open = Q_open * timestep
-
-    return [V_open]
-
-
-
-def calculation_drainage(Basin, Volume, timestep, drain_to_water_level, basin_water_level, retention):
+    V_open = Q_open * 3600 * timestep               #change from per second to per timestep
+    return V_open
+def calculation_drainage(Basin, Volume, timestep, drain_to_water_level_abs, basin_water_level_abs, retention):
     """
     This function calculates the volume that is drained from a drainage basin, as well as the remaining volume. The
     water can drain to another basin (flow_interbasin) or out to sea/sewerage (outflow_drainage). The water level in the
@@ -194,16 +160,10 @@ def calculation_drainage(Basin, Volume, timestep, drain_to_water_level, basin_wa
     :return flow_interbasin: volume of water that flow to another drainage basin [m^3]
     :return retention: New volume of retention after calculations. [m^3]
     """
-    hdiff = basin_water_level - drain_to_water_level
-    drain_factor = min(hdiff, 1)
+    hdiff = (basin_water_level_abs) - drain_to_water_level_abs                   #can go negative
+    drain_factor = max(min(hdiff, 1), 0)                                                #Capped between 0 and 1
 
-    # drain_factor = 1                # if drain_drop_off is more than 1, nothing happens in following statement and factor = 1
-    # if drain_drop_off < 0:          # if water level downstream is higher than in basin, no outflow drainage/surface
-    #     return [0, volume, 0, retention]
-    # elif drain_drop_off < 1.0:      # if
-    #     drain_factor = min(0.25 + drain_drop_off*3/4, 1) #not sure where this formula comes from
-
-    max_drainage_capacity = Basin.DischargeCapacity * timestep * drain_factor
+    max_drainage_capacity = Basin.DrainageDischarge * 3600 * timestep * drain_factor #m^3/timestp
     outflow_drainage = min(Volume + retention, max_drainage_capacity)           #if drainage > volume in basin, only the volume + retention in the basin drain.
     remaining_volume = Volume - outflow_drainage
 
@@ -211,13 +171,8 @@ def calculation_drainage(Basin, Volume, timestep, drain_to_water_level, basin_wa
         retention += remaining_volume
         remaining_volume = 0
 
-    inflow_drainage = 0
-    if Basin.DrainsTo != 0:                                                     # if water flows to another basin ( 0 represents 'sea' or 'none')
-        inflow_drainage = outflow_drainage
-        outflow_drainage = 0
-
     return [outflow_drainage, retention]
-def calculate_infiltration(Basin, timestep, basin_water_level):
+def calculate_infiltration(Basin, timestep, abs_basin_wl):
     """
     OUTFLOW
     Calculates the infiltration of each basin for each timestep.
@@ -226,7 +181,7 @@ def calculate_infiltration(Basin, timestep, basin_water_level):
     :param Basin: Basin where infiltration is taking place
     :param timestep: amount of seconds per timestep [hours]
     :param basin_water_level: the water level in the basin at the start of the calculation [m]
-    :param infiltration_rate: the amount of water that infiltrates in the basin[m/hour]
+    :param infiltration_rate: the amount of water that infiltrates in the basin[mm/hour]
 
     :return: outflow_volume_infiltration: volume of water that infiltrates basin in 1 time step [m^3]
     """
@@ -234,14 +189,11 @@ def calculate_infiltration(Basin, timestep, basin_water_level):
 # I think a better method could be possible though as this was for an urban landscape
     min_x = Basin.Contours[0].MinHeight
     max_x = Basin.Contours[-1].MinHeight
-    x = min(Basin.Contours[-1].MinHeight, basin_water_level + Basin.Contours[0].MinHeight)
+    x = min(Basin.Contours[-1].MinHeight, abs_basin_wl)
 
-    approx_surface_area = ((x - min_x) / (
-                max_x - min_x)) * Basin.Area
-    outflow_volume_infiltration = Basin.InfiltrationRate / 1000 * approx_surface_area * (timestep / 3600)
-    return outflow_volume_infiltration
-
-
+    approx_surface_area = ((x - min_x) / (max_x - min_x)) * Basin.Area
+    outflow_volume_infiltration = Basin.InfiltrationRate / 1000 * approx_surface_area * (timestep)
+    return outflow_volume_infiltration      #[m^3/timestep]
 def calculate_interbasin(Basin, basin_water_level, surrounding_water_levels):
     """
     In original FLORES model this was an aspect of the Basin class. I changed it to be a formula.
@@ -255,7 +207,7 @@ def calculate_interbasin(Basin, basin_water_level, surrounding_water_levels):
     """
     flow_to_other_basins = {}
     #Calculates surrounding water levels and border heights, and uses the maximum of these two to create a threshold
-    surrounding_thresholds = {Basin: max(surrounding_water_levels[Basin], Basin.BorderHeights[Basin]) for Basin in
+    surrounding_thresholds = {b: max(surrounding_water_levels[b], Basin.BorderHeights[b]) for b in
                               surrounding_water_levels.keys()}
 
     #Not sure what the water levels are sorted by. After they're sorted a number of lists is made in the same order      Background info: https://www.programiz.com/python-programming/methods/built-in/sorted
@@ -267,7 +219,6 @@ def calculate_interbasin(Basin, basin_water_level, surrounding_water_levels):
         basin_numbers_sorted.append(sorted_thresholds[i][0])
         surrounding_basins_threshold.append(sorted_thresholds[i][1])
         surface_areas_sorted.append(Basin.SurroundingAreas[sorted_thresholds[i][0]])
-    surrounding_basins_threshold.append(100)
 
     # Using the absolute water level from the last time step and the sorted thresholds, for each consecutive threshold the
     # flow between those two basins is calculated and saved, and the new water level in the source basin is changed for the next threshold.
@@ -277,12 +228,15 @@ def calculate_interbasin(Basin, basin_water_level, surrounding_water_levels):
         tmp_absolute_water_level = new_absolute_water_level
         if tmp_absolute_water_level > surrounding_basins_threshold[j]:
             area_factor = Basin.Area / surface_areas_sorted[j]
-            new_absolute_water_level = (tmp_absolute_water_level * area_factor + surrounding_basins_threshold[j]) / (1 + area_factor)
             flow_to_other_basins[basin_numbers_sorted[j]] = Basin.HeightToVolume(tmp_absolute_water_level) - Basin.HeightToVolume(new_absolute_water_level)
-        else:
-            break #This can be done without missing a threshold because they've already been sorted
+            new_absolute_water_level = (tmp_absolute_water_level * area_factor + surrounding_basins_threshold[j]) / (1 + area_factor)
 
-    return [flow_to_other_basins]
+        else:
+            flow_to_other_basins[basin_numbers_sorted[j]] = 0
+
+             #This can be done without missing a threshold because they've already been sorted
+
+    return flow_to_other_basins
 
 
 
