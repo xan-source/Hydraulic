@@ -6,3 +6,5 @@ This is the current state of the Hydraulic model.
 
 - FLORES Input holds the input files necessary for the model to run
 - PreviousVersions holds old versions of the model, used for my interest
+
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
